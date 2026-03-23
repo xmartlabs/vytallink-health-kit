@@ -76,6 +76,9 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
 "tests/**/*.py" = ["ARG001", "ARG002"]  # Fixtures de pytest pueden parecer no usados
+# datetime.date must be a runtime import in Pydantic v2 models (field annotations resolved at runtime)
+"src/vytallink_health_kit/domain/entities.py" = ["TCH003"]
+"src/vytallink_health_kit/domain/readiness.py" = ["TCH003"]
 
 [tool.ruff.lint.isort]
 # Configuración compatible con Black

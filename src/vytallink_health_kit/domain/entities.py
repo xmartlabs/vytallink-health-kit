@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import date
 
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from datetime import date
 
 
 class SleepRecord(BaseModel):
@@ -43,34 +40,23 @@ class HealthData(BaseModel):
     heart_rate: dict[str, HRRecord]  # date.isoformat() → HRRecord
     activity: dict[str, ActivityRecord]  # date.isoformat() → ActivityRecord
 
+    def _has_any_data(self, d: date) -> bool:
+        key = d.isoformat()
+        s = self.sleep.get(key)
+        hr = self.heart_rate.get(key)
+        act = self.activity.get(key)
+        return (
+            (s is not None and s.total_minutes is not None)
+            or (hr is not None and hr.resting_bpm is not None)
+            or (act is not None and act.steps is not None)
+        )
+
     @property
     def available_days(self) -> int:
         """Days with at least one non-None metric."""
-        count = 0
-        for d in self.days:
-            key = d.isoformat()
-            s = self.sleep.get(key)
-            hr = self.heart_rate.get(key)
-            act = self.activity.get(key)
-            has_sleep = s is not None and s.total_minutes is not None
-            has_hr = hr is not None and hr.resting_bpm is not None
-            has_act = act is not None and act.steps is not None
-            if has_sleep or has_hr or has_act:
-                count += 1
-        return count
+        return sum(1 for d in self.days if self._has_any_data(d))
 
     @property
     def missing_days(self) -> list[date]:
         """Days with no data at all."""
-        missing = []
-        for d in self.days:
-            key = d.isoformat()
-            s = self.sleep.get(key)
-            hr = self.heart_rate.get(key)
-            act = self.activity.get(key)
-            has_sleep = s is not None and s.total_minutes is not None
-            has_hr = hr is not None and hr.resting_bpm is not None
-            has_act = act is not None and act.steps is not None
-            if not (has_sleep or has_hr or has_act):
-                missing.append(d)
-        return missing
+        return [d for d in self.days if not self._has_any_data(d)]

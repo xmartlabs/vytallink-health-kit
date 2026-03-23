@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import date
 
-from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from datetime import date
+from pydantic import BaseModel, Field
 
 
 class DailyReadiness(BaseModel):
@@ -19,8 +16,8 @@ class DailyReadiness(BaseModel):
     sleep_efficiency_pct: float | None = None  # percentage; >85% is good
     resting_hr_trend: float | None = None  # bpm/day; negative = improving
     load_ratio: float | None = None  # recent/prior load; >1.5 = elevated risk
-    data_gaps: list[date] = []  # days with no recorded data
-    warnings: list[str] = []  # human-readable alerts
+    data_gaps: list[date] = Field(default_factory=list)  # days with no recorded data
+    warnings: list[str] = Field(default_factory=list)  # human-readable alerts
 
 
 class ReadinessReport(BaseModel):

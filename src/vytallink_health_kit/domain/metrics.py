@@ -79,7 +79,7 @@ def load_ratio(records: list[ActivityRecord]) -> float | None:
             return float(r.steps / 100)
         return None
 
-    loads = [daily_load(r) for r in records if daily_load(r) is not None]
+    loads = [v for r in records if (v := daily_load(r)) is not None]
     if len(loads) < MIN_DAYS_LOAD_RATIO:
         return None
 
@@ -104,7 +104,7 @@ def readiness_score(
     Composite readiness score (0-100).
 
     Components (equal weight when available):
-    - Sleep efficiency: 100 -> 100pts, 85 -> ~85pts, <70 -> penalty
+    - Sleep efficiency: 100% → 100pts, 85% → 75pts, 70% → 50pts, <70% → <50pts
     - HR trend: <=0 (improving/stable) -> 100pts, each +1 bpm/day -> -10pts
     - Load ratio: 0.8-1.2 (optimal) -> 100pts, >1.5 -> large penalty, <0.5 -> moderate penalty
 
