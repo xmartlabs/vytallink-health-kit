@@ -51,7 +51,8 @@ def load_vytallink_settings(base_url: str | None = None) -> VytalLinkSettings:
     """Load VytalLink settings from env, raising ConfigurationError if base_url is missing.
 
     Args:
-        base_url: Optional override for VYTALLINK_BASE_URL.
+        base_url: Optional override for VYTALLINK_BASE_URL (e.g. from --base-url CLI flag).
+                  When provided, VYTALLINK_BASE_URL env var is not required.
 
     Returns:
         Validated VytalLinkSettings instance.
@@ -59,6 +60,10 @@ def load_vytallink_settings(base_url: str | None = None) -> VytalLinkSettings:
     Raises:
         ConfigurationError: If VYTALLINK_BASE_URL is not set and no override provided.
     """
+    if base_url is not None:
+        # Runtime override (e.g. from CLI --base-url flag) — env var not required
+        return VytalLinkSettings(base_url=base_url)
+
     try:
         settings = VytalLinkSettings()
     except Exception as exc:
@@ -68,17 +73,6 @@ def load_vytallink_settings(base_url: str | None = None) -> VytalLinkSettings:
             "  VYTALLINK_BASE_URL=https://vytallink.local.xmartlabs.com\n"
             f"Original error: {exc}"
         ) from exc
-
-    if base_url is not None:
-        # Runtime override (e.g. from CLI --base-url flag)
-        return VytalLinkSettings(base_url=base_url)
-
-    if not settings.base_url:
-        raise ConfigurationError(
-            "VYTALLINK_BASE_URL is required but empty.\n"
-            "Set it to the relay URL, e.g.:\n"
-            "  VYTALLINK_BASE_URL=https://vytallink.local.xmartlabs.com"
-        )
 
     return settings
 
