@@ -1,6 +1,6 @@
 # =============================================================================
 # This Makefile provides commands to configure, run, and work with
-# the specialized agent for medical consultation preparation using SBAR.
+# the VytalLink Health Kit — Daily Readiness Agent.
 #
 # Main features:
 # - Virtual environment management with uv
@@ -24,7 +24,7 @@ export ENVIRONMENT=localhost
 VENV_DIR ?= .venv
 KERNEL_NAME=ai-kernel
 TEMPLATE_REMOTE ?= template
-TEMPLATE_REPO ?= git@github.com:marcosdh1987/ml-python-base.git
+TEMPLATE_REPO ?=
 TEMPLATE_BRANCH ?= main
 
 # =============================================================================
@@ -189,7 +189,7 @@ run-interactive:
 # =============================================================================
 
 # Docker configuration variables
-IMG_NAME ?= medical-agent
+IMG_NAME ?= vytallink-health-kit
 IMAGE_TAG ?= latest
 CONTAINER_NAME ?= medical-agent-server
 API_PORT ?= 8008

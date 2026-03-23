@@ -6,12 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "pandas",
-    "ruff",
-    "nbstripout>=0.7.0",
-    "ipykernel",
     "httpx>=0.28.1",
     "anthropic>=0.86.0",
-    "openai>=2.29.0",
+    "openai==2.29.0",
     "typer>=0.24.1",
     "python-dotenv>=1.2.2",
     "rich>=14.2.0",
@@ -143,4 +140,7 @@ dev = [
     "pre-commit>=3.8.0",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
+    "ruff",
+    "nbstripout>=0.7.0",
+    "ipykernel",
 ]

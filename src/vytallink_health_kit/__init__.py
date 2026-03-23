@@ -1,1 +1,1 @@
-# VytalLink Health Kit
+"""VytalLink Health Kit — Daily Readiness Agent."""
