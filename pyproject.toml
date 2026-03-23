@@ -1,7 +1,7 @@
 [project]
-name = "ml-python-base"
+name = "vytallink-health-kit"
 version = "0.1.0"
-description = "Template base para proyectos de ML"
+description = "VytalLink Health Kit — Daily Readiness Agent for hackathons"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,6 +9,13 @@ dependencies = [
     "ruff",
     "nbstripout>=0.7.0",
     "ipykernel",
+    "httpx>=0.28.1",
+    "anthropic>=0.86.0",
+    "openai>=2.29.0",
+    "typer>=0.24.1",
+    "python-dotenv>=1.2.2",
+    "rich>=14.2.0",
+    "pydantic-settings>=2.13.1",
 ]
 
 [build-system]
@@ -16,7 +23,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ml_python_base"]
+packages = ["src/vytallink_health_kit"]
 
 [tool.ruff]
 # Configuración general de Ruff
@@ -75,7 +82,7 @@ unfixable = []
 
 [tool.ruff.lint.isort]
 # Configuración compatible con Black
-known-first-party = ["src"]
+known-first-party = ["vytallink_health_kit"]
 combine-as-imports = true
 force-wrap-aliases = true
 
