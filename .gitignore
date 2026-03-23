@@ -3,7 +3,7 @@ venv/
 env/
 .env
 
-# Python cache y compilados
+# Python cache and compiled artifacts
 *.pyc
 __pycache__/
 dash/__pycache__/
@@ -13,23 +13,23 @@ webapp01/__pycache__/
 .Python
 *.so
 
-# Entornos virtuales
+# Virtual environments
 instance/
 
-# Testing y coverage
+# Testing and coverage
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
 .nox/
 
-# Build y distribución
+# Build and distribution
 dist/
 build/
 *.egg-info/
 .eggs/
 
-# Linting y code quality
+# Linting and code quality
 .mypy_cache/
 .ruff_cache/
 .pylint.d/
@@ -37,7 +37,7 @@ security-report.json
 bandit-report.json
 semgrep-report.json
 
-# IDEs y editores
+# IDEs and editors
 .vscode/
 .idea/
 *.swp
@@ -73,9 +73,11 @@ test-reports/
 notebooks/data/evaluation/results/*
 notebooks/data/experiments/*
 
-# Sistema
+# System files
 .DS_Store
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 .pylintrc
+
+.claude/
