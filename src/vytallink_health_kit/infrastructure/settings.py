@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,9 +24,17 @@ class VytalLinkSettings(BaseSettings):
     base_url: str  # VYTALLINK_BASE_URL
     word: str | None = None  # VYTALLINK_WORD
     code: str | None = None  # VYTALLINK_CODE
+    api_mode: Literal["auto", "legacy", "metrics"] = "auto"  # VYTALLINK_API_MODE
     sleep_path: str = "/sleep"  # VYTALLINK_SLEEP_PATH
     heart_rate_path: str = "/heart-rate/resting"  # VYTALLINK_HEART_RATE_PATH
     activity_path: str = "/activity"  # VYTALLINK_ACTIVITY_PATH
+    direct_login_path: str = "/api/direct-login"  # VYTALLINK_DIRECT_LOGIN_PATH
+    metrics_path: str = "/api/get_health_metrics"  # VYTALLINK_METRICS_PATH
+    sleep_value_type: str = "SLEEP"  # VYTALLINK_SLEEP_VALUE_TYPE
+    heart_rate_value_type: str = "HEART_RATE"  # VYTALLINK_HEART_RATE_VALUE_TYPE
+    activity_value_type: str = "STEPS"  # VYTALLINK_ACTIVITY_VALUE_TYPE
+    metrics_group_by: str | None = "DAY"  # VYTALLINK_METRICS_GROUP_BY
+    metrics_statistic: str | None = None  # VYTALLINK_METRICS_STATISTIC
     timeout_seconds: float = 15.0  # VYTALLINK_TIMEOUT_SECONDS
 
 

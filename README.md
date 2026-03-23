@@ -14,6 +14,7 @@ The first release targets three consumption modes:
 - Computes sleep efficiency, resting heart rate trend, load ratio, and a composite readiness score
 - Highlights missing data and recovery warnings
 - Produces markdown or JSON output
+- Automatically falls back to the metrics API used by newer VytalLink deployments
 - Falls back to deterministic recommendations when no LLM provider is configured
 
 ## Architecture
@@ -45,6 +46,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```bash
 make install
 source .venv/bin/activate
+cp .env.example .env
 ```
 
 ### Required VytalLink Configuration
@@ -55,13 +57,29 @@ export VYTALLINK_WORD="your-word"
 export VYTALLINK_CODE="your-code"
 ```
 
+Important:
+
+- the repository does not contain the real `VYTALLINK_WORD` or `VYTALLINK_CODE`
+- those values are environment-specific secrets or access credentials
+- you must obtain them from your VytalLink environment, hackathon onboarding, or existing MCP/server configuration
+
+Use [.env.example](/Users/marcossoto/Documents/xl/vytallink-health-kit/.env.example) as the starting point and see [docs/configuration.md](/Users/marcossoto/Documents/xl/vytallink-health-kit/docs/configuration.md) for the full setup guide.
+
 Optional endpoint overrides are available because the exact REST contract may differ by environment:
 
 ```bash
+export VYTALLINK_API_MODE="auto"
 export VYTALLINK_SLEEP_PATH="/sleep"
 export VYTALLINK_HEART_RATE_PATH="/heart-rate/resting"
 export VYTALLINK_ACTIVITY_PATH="/activity"
+export VYTALLINK_DIRECT_LOGIN_PATH="/api/direct-login"
+export VYTALLINK_METRICS_PATH="/api/get_health_metrics"
+export VYTALLINK_SLEEP_VALUE_TYPE="SLEEP"
+export VYTALLINK_HEART_RATE_VALUE_TYPE="HEART_RATE"
+export VYTALLINK_ACTIVITY_VALUE_TYPE="STEPS"
 ```
+
+By default the toolkit uses `VYTALLINK_API_MODE=auto`: it tries the legacy `/sleep`-style endpoints first and falls back to the newer metrics API with direct login when those paths are missing.
 
 Optional LLM configuration:
 
@@ -131,39 +149,8 @@ This repository keeps the template governance model because it is used for AI-as
 - Notebooks are demos and must reuse package code rather than reimplement business logic.
 - All repository-facing code and technical documentation should remain in English.
 
-```bash
-make purge-external-skills
-```
+## Additional Documentation
 
-This removes all synced external skills and `skills-lock.json`, while keeping internal template skills untouched.
-
-## 🐳 Docker Support
-
-```bash
-# Build Docker image
-make build-api
-
-# Run in Docker
-make run-api-docker
-
-# Stop Docker container
-make stop-docker
-```
-
-## 📝 Configuration
-
-- **Dependencies**: `pyproject.toml` - `[project.dependencies]`
-- **Ruff**: `pyproject.toml` - `[tool.ruff]`
-- **Pytest**: `pyproject.toml` - `[tool.pytest.ini_options]`
-- **Editor**: `.editorconfig`
-
-## 🤝 Contributing
-
-1. Create a new branch
-2. Make your changes
-3. Run `make ci` to ensure quality
-4. Submit a pull request
-
-## 📄 License
-
-This is a template project - customize as needed for your use case.
+- [docs/configuration.md](/Users/marcossoto/Documents/xl/vytallink-health-kit/docs/configuration.md): environment variables and credential guidance
+- [docs/domain.md](/Users/marcossoto/Documents/xl/vytallink-health-kit/docs/domain.md): architecture and metric definitions
+- [docs/vytallink-integration-guide.md](/Users/marcossoto/Documents/xl/vytallink-health-kit/docs/vytallink-integration-guide.md): how to build with the VytalLink app and this repository together
