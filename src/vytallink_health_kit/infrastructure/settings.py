@@ -19,9 +19,13 @@ class VytalLinkSettings(BaseSettings):
         extra="ignore",
     )
 
-    base_url: str  # VYTALLINK_BASE_URL — required
-    word: str | None = None   # VYTALLINK_WORD — optional if using --word CLI arg
-    code: str | None = None   # VYTALLINK_CODE — optional if using --code CLI arg
+    base_url: str  # VYTALLINK_BASE_URL
+    word: str | None = None  # VYTALLINK_WORD
+    code: str | None = None  # VYTALLINK_CODE
+    sleep_path: str = "/sleep"  # VYTALLINK_SLEEP_PATH
+    heart_rate_path: str = "/heart-rate/resting"  # VYTALLINK_HEART_RATE_PATH
+    activity_path: str = "/activity"  # VYTALLINK_ACTIVITY_PATH
+    timeout_seconds: float = 15.0  # VYTALLINK_TIMEOUT_SECONDS
 
 
 class LLMSettings(BaseSettings):
@@ -37,13 +41,14 @@ class LLMSettings(BaseSettings):
         extra="ignore",
     )
 
-    llm_provider: str = "anthropic"       # LLM_PROVIDER env var
+    llm_provider: str = "anthropic"  # LLM_PROVIDER env var
     anthropic_api_key: str | None = None  # ANTHROPIC_API_KEY env var
-    openai_api_key: str | None = None     # OPENAI_API_KEY env var
+    openai_api_key: str | None = None  # OPENAI_API_KEY env var
 
 
 class ConfigurationError(Exception):
     """Raised when required configuration is missing or invalid."""
+
     pass
 
 

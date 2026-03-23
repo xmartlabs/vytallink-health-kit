@@ -1,282 +1,135 @@
-# Python ML Base Project
+# VytalLink Health Kit
 
-A modern Python base project template with best practices for machine learning and data science development.
+VytalLink Health Kit is a Python toolkit for hackathon teams that want to turn wearable data into a daily readiness report. It fetches a seven-day window of sleep, resting heart rate, and activity data from VytalLink, computes clinically grounded recovery signals, and produces a concise report that can include LLM-generated recommendations.
 
-## 🚀 Features
+The first release targets three consumption modes:
 
-- **Modern Python 3.11** setup with `uv` for ultra-fast dependency management
-- **Reproducible Environments** using `uv.lock`
-- **Ruff** for ultra-fast linting and formatting (replaces Black, Flake8, isort, pyupgrade)
-- **Jupyter Notebooks** support with automated cleanup (`nbstripout`)
-- **Pre-commit hooks** to ensure quality before committing
-- **Makefile** commands for common development tasks
-- **Testing** setup with pytest and coverage
-- **Docker** support for containerization
-- **Dev Containers** ready for consistent development environments
+- installable Python package
+- command-line interface
+- demo notebook
 
-## 📋 Prerequisites
+## What It Does
+
+- Loads a seven-day health window from the VytalLink REST API
+- Computes sleep efficiency, resting heart rate trend, load ratio, and a composite readiness score
+- Highlights missing data and recovery warnings
+- Produces markdown or JSON output
+- Falls back to deterministic recommendations when no LLM provider is configured
+
+## Architecture
+
+The repository follows a practical clean architecture split:
+
+- `src/vytallink_health_kit/domain/`: entities, metric functions, and readiness models
+- `src/vytallink_health_kit/application/`: readiness orchestration and use case wiring
+- `src/vytallink_health_kit/infrastructure/`: configuration, REST client, and LLM adapter
+- `tests/`: deterministic unit and flow tests
+- `notebooks/`: exploratory and demo usage only
+
+## Quick Start
+
+### Prerequisites
 
 - Python 3.11+
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer
-- Make
-- **Optional**: Docker Desktop & VS Code Dev Containers extension
+- `uv`
+- `make`
 
-### Install uv
+Install `uv` on macOS or Linux:
 
 ```bash
-# macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Or with pip
-pip install uv
 ```
 
-## 🛠️ Quick Start
-
-### 1. Setup Development Environment
-
-This command will install the specific Python version defined in the Makefile, create the virtual environment, and sync all dependencies from `uv.lock`.
+### Environment Setup
 
 ```bash
-# Setup project
 make install
-
-# Activate virtual environment
 source .venv/bin/activate
 ```
 
-### 2. Setup Git Hooks (Recommended)
-
-Install pre-commit hooks to automatically clean notebooks and format code before every commit.
+### Required VytalLink Configuration
 
 ```bash
-make setup-hooks
+export VYTALLINK_BASE_URL="https://your-vytallink-host"
+export VYTALLINK_WORD="your-word"
+export VYTALLINK_CODE="your-code"
 ```
 
-### 3. Jupyter Notebooks
-
-After running `make install`, a kernel named "Python (uv)" will be automatically registered.
+Optional endpoint overrides are available because the exact REST contract may differ by environment:
 
 ```bash
-# Start Jupyter
-uv run jupyter lab
-```� Dev Containers (Recommended)
+export VYTALLINK_SLEEP_PATH="/sleep"
+export VYTALLINK_HEART_RATE_PATH="/heart-rate/resting"
+export VYTALLINK_ACTIVITY_PATH="/activity"
+```
 
-This project is configured to run inside a **Dev Container**. This guarantees that you are working in the exact same environment as production (Linux), regardless of your local OS (macOS, Windows).
-
-### How to use
-
-1. Install **Docker Desktop**.
-2. Install the **Dev Containers** extension in VS Code.
-3. Open the project in VS Code.
-4. Click on the pop-up **"Reopen in Container"** (or run the command from the Palette).
-
-### Benefits
-
-- **Zero Setup**: The container installs Python, `uv`, and all dependencies automatically.
-- **Production Parity**: Develop on Linux, deploy on Linux.
-- **Jupyter Integration**: Notebooks run seamlessly inside the container, using the container's kernel.
-
-## �
-
-## 📦 Managing Dependencies
-
-We use `uv` to manage dependencies in `pyproject.toml` and lock them in `uv.lock`.
-
-### Add a new library
-
-Instead of editing files manually, use the helper command:
+Optional LLM configuration:
 
 ```bash
-# Add a package (e.g., tensorflow)
-make add PKG=tensorflow
-
-# Add a development dependency
-make add PKG="pytest --dev"
+export LLM_PROVIDER="anthropic"
+export ANTHROPIC_API_KEY="your-key"
 ```
 
-This will:
-1. Add the package to `pyproject.toml`
-2. Update `uv.lock`
-3. Install the package in your environment
+If no valid LLM configuration is present, the toolkit returns a deterministic fallback narrative.
 
-### Remove a library
+## CLI Usage
 
-To remove a package you no longer need:
+Run the installable command directly:
 
 ```bash
-make remove PKG=tensorflow
+uv run vytallink-health-kit readiness --no-llm
 ```
 
-### Generate requirements.txt
-
-If you need a `requirements.txt` for legacy systems or deployment:
+Request JSON output:
 
 ```bash
-make generate-requirements
+uv run vytallink-health-kit readiness --output json --no-llm
 ```
 
-## 🎯 Code Quality
-
-The project provides three main levels of code quality checks:
-
-1. **`make fix` (Recommended)**: The "do it all" command. It auto-formats code, sorts imports, removes unused imports, fixes linting issues, and cleans Jupyter notebooks. Run this frequently!
-2. **`make fix-force`**: Same as `fix`, but applies "unsafe" fixes. Use with caution (e.g., it might remove imports used only in `try/except` blocks).
-3. **`make lint`**: Runs strict static analysis and security checks (Bandit). It does not modify files. Use this to verify your code before pushing.
-4. **`make format`**: A lighter version of `fix`. Only formats code and sorts imports.
+Override connection values at runtime:
 
 ```bash
-# 1. Clean everything (Safe mode)
-make fix
-
-# 2. Clean everything (Aggressive mode - check changes after!)
-make fix-force
-
-# 3. Verify quality and security (Read-only check)
-make lint
-
-# 4. Run full CI pipeline (Fix + Lint + Test)
-make ci
+uv run vytallink-health-kit readiness \
+	--base-url "https://your-vytallink-host" \
+	--word "your-word" \
+	--code "your-code"
 ```
 
-## 📁 Project Structure
-
-```
-.
-├── src/                    # Source code
-├── tests/                  # Test files
-├── notebooks/              # Jupyter notebooks
-├── Makefile               # Development commands
-├── pyproject.toml         # Project configuration & dependencies
-├── uv.lock                # Exact versions lockfile (DO NOT EDIT MANUALLY)
-├── .pre-commit-config.yaml # Git hooks configuration
-├── .editorconfig          # Editor formatting rules
-└── README.md              # This file
-```
-
-## 🧭 AI Rules Structure (Cross-Tool)
-
-This template uses a consistent four-level strategy so it can be reused with VS Code/Copilot, Antigravity rules, and Codex-style skills.
-
-### Level 1 — Governance
-
-- `.github/architecture.md`
-- `.github/standards.md`
-- `.github/domain-boundaries.md`
-
-### Level 2 — Operational Skills
-
-Stored in `.github/skills/`:
-
-- `create_use_case`
-- `create_repository_interface`
-- `create_mle_agent_package`
-- `generate_e2e_tests`
-- `generate_implementation_docs`
-- `refactor_to_clean_architecture`
-- `validate_module_structure`
-- `generate_migration_plan`
-- `execute_engineering_task`
-- `plan_and_execute_feature`
-
-### Level 3 — Automation
-
-- `.github/automation.md`
-- CI and local checks through `make lint`, `make test`, and `make ci`
-- On PRs, if `src/` or `tests/` changes, at least one file in `docs/` must be updated
-- Test flow enforces `make format` and `make fix` before running tests
-
-### Level 4 — Orchestration
-
-- `.github/orchestration.md`
-- Plan-first requirement
-- Step-by-step execution
-- Mandatory diff review
-- Validation against automation
-- No direct large generation without skill invocation
-
-Adapters:
-
-- Copilot entrypoint: `.github/copilot-instructions.md`
-- Antigravity-style rules: `.agent/rules/`
-
-Documentation template:
-
-- `docs/implementation-template.md` (use it when implementing and testing new changes)
-
-## 🔧 Available Commands
+## Development Commands
 
 | Command | Description |
 |---------|-------------|
-| `make install` | Setup environment, install python version and sync dependencies |
-| `make add PKG=x` | Add a new dependency to the project |
-| `make remove PKG=x` | Remove a dependency from the project |
-| `make setup-hooks` | Install pre-commit hooks for git |
-| `make format` | Format code with Ruff |
-| `make lint` | Run code quality checks |
-| `make fix` | Auto-fix linting issues |
+| `make install` | Create the environment and sync dependencies with `uv` |
+| `make setup-hooks` | Install pre-commit hooks |
+| `make format` | Format source and tests with Ruff |
+| `make fix` | Apply safe automatic fixes |
+| `make lint` | Run Ruff and Bandit |
 | `make test` | Run tests with coverage |
-| `make ci` | Run full CI pipeline |
-| `make sync-skills` | Sync external skills, refresh `skills-lock.json`, and clean installer artifacts |
-| `make purge-external-skills` | Remove all external skills and reset to template baseline |
-| `make template-remote-setup` | Add or update the template upstream remote |
-| `make template-sync-preview` | Fetch template changes and preview incoming commits |
-| `make template-sync-merge` | Merge template branch into current branch |
-| `make template-sync-rebase` | Rebase current branch onto template branch |
-| `make generate-requirements` | Export `uv.lock` to `requirements.txt` |
-| `make clean` | Remove cache and generated files |
-| `make help` | Show all available commands |
+| `make ci` | Run the local validation pipeline |
+| `make run-readiness` | Run the CLI in markdown mode without LLM |
+| `make run-readiness-json` | Run the CLI in JSON mode without LLM |
 
-## Template Sync
+## Notes on Metrics
 
-If this repository is used as a long-lived template, derived repositories can keep receiving updates by using a Git remote as upstream.
+- Sleep efficiency follows the standard `total sleep / time in bed` interpretation.
+- Resting heart rate trend is computed as a linear regression slope in bpm/day.
+- `load_ratio` is a simplified seven-day load index, not the standard clinical ACWR 7:28 calculation.
 
-Quick setup:
+## AI Governance
 
-```bash
-make template-remote-setup
-make template-sync-preview
-make template-sync-merge
-```
+This repository keeps the template governance model because it is used for AI-assisted implementation:
 
-For a full guide (including conflict resolution and rebase flow), see `docs/template-sync.md`.
+- Governance: `.github/architecture.md`, `.github/standards.md`, `.github/domain-boundaries.md`
+- Automation: `.github/automation.md`
+- Orchestration: `.github/orchestration.md`
+- Copilot entrypoint: `.github/copilot-instructions.md`
+- Tool-specific adapters: `AGENTS.md` and `CLAUDE.md`
 
-## 🧩 Skills Lifecycle (Template)
+## Repository Notes
 
-### Default skills bundled in this template
-
-Internal curated skills live in `.github/skills/`:
-
-- `create_use_case`
-- `create_repository_interface`
-- `create_mle_agent_package`
-- `generate_e2e_tests`
-- `generate_implementation_docs`
-- `refactor_to_clean_architecture`
-- `validate_module_structure`
-- `generate_migration_plan`
-- `execute_engineering_task`
-- `plan_and_execute_feature`
-
-### Install an external skill from skills.sh
-
-Use the skills installer CLI (example):
-
-```bash
-npx skills add https://github.com/mindrally/skills --skill odoo-development
-```
-
-Then normalize it into this repository structure:
-
-```bash
-make sync-skills
-```
-
-This syncs to `.github/skills-external/`, refreshes `skills-lock.json`, and removes installer temp folders.
-
-### Purge all external skills (reset mode)
-
-To test the full lifecycle from scratch:
+- `.claude/` is local worktree tooling and is intentionally ignored.
+- Notebooks are demos and must reuse package code rather than reimplement business logic.
+- All repository-facing code and technical documentation should remain in English.
 
 ```bash
 make purge-external-skills

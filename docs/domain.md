@@ -1,62 +1,119 @@
-# Domain Layer
+# VytalLink Health Kit Architecture Notes
 
-## Purpose
+## Layer Responsibilities
 
-The domain layer is pure Python — no I/O, no external dependencies beyond Pydantic.
-It defines the core entities and business logic of the VytalLink Health Kit.
+### Domain
 
-## Entities (`domain/entities.py`)
+The domain layer is pure Python and contains the toolkit's core health concepts.
+It does not know about HTTP, environment variables, notebooks, or LLM providers.
+
+Main modules:
+
+- `domain/entities.py`: `SleepRecord`, `HRRecord`, `ActivityRecord`, and `HealthData`
+- `domain/metrics.py`: metric functions for sleep efficiency, resting heart rate trend, load ratio, and readiness score
+- `domain/readiness.py`: `DailyReadiness` and `ReadinessReport`
+
+### Application
+
+The application layer coordinates the end-to-end readiness workflow.
+
+Main modules:
+
+- `application/ports.py`: provider interfaces for loading health data and generating narratives
+- `application/use_cases.py`: `BuildReadinessReportUseCase`, request contract, warning generation, and deterministic fallback narrative
+
+### Infrastructure
+
+The infrastructure layer implements I/O concerns and provider-specific code.
+
+Main modules:
+
+- `infrastructure/settings.py`: environment-backed settings for VytalLink and LLM providers
+- `infrastructure/vytallink_client.py`: configurable REST adapter that loads the requested date window and normalizes payloads into domain records
+- `infrastructure/llm.py`: Anthropic/OpenAI adapter with graceful fallback to deterministic output
+
+## Domain Entities
 
 | Entity | Description |
 |--------|-------------|
-| `SleepRecord` | Sleep data for a single night: total, deep, REM, light, and awake minutes. |
+| `SleepRecord` | Sleep data for one day or night, including asleep and awake minutes. |
 | `HRRecord` | Daily resting heart rate in bpm. |
-| `ActivityRecord` | Daily activity summary: steps, active calories, exercise minutes. |
-| `HealthData` | 7-day snapshot containing dicts of the above records keyed by ISO date string. Exposes `available_days` (count of days with any data) and `missing_days` (list of days with no data). |
+| `ActivityRecord` | Daily activity summary with steps, active calories, and exercise minutes. |
+| `HealthData` | Ordered multi-day snapshot containing sleep, heart-rate, and activity maps keyed by ISO date string. |
 
-## Metrics (`domain/metrics.py`)
+`HealthData.available_days` counts days with at least one observed metric.
+`HealthData.missing_days` returns dates where no sleep, resting HR, or activity value was present.
 
-### `sleep_efficiency(record) -> float | None`
+## Metric Definitions
+
+### Sleep Efficiency
+
+Formula:
 
 `total_minutes / (total_minutes + awake_minutes) * 100`
 
-Clinical reference: >85% is considered good sleep efficiency.
+Interpretation:
 
-### `resting_hr_trend(records) -> float | None`
+- `> 85%` is generally favorable
+- missing asleep or awake minutes yields `None`
 
-Linear regression slope over daily resting HR (bpm/day).
-Negative = HR improving. Requires at least 3 days with HR data.
+### Resting Heart Rate Trend
 
-### `load_ratio(records) -> float | None`
+Formula:
 
-Splits available activity days into two chronological halves and computes
-`avg_load(recent_half) / avg_load(prior_half)`.
+- linear regression slope in bpm/day over the available resting HR series
 
-Load proxy priority: `active_calories` > `exercise_minutes * 5` > `steps / 100`.
+Interpretation:
 
-Values >1.5 suggest elevated acute load relative to baseline.
+- negative or zero slope suggests stable or improving recovery
+- positive slope suggests possible strain or incomplete recovery
+- fewer than 3 data points yields `None`
 
-**Note:** This is NOT the standard clinical ACWR (7:28 days). It is a simplified
-index adapted for 7-day windows.
+### Load Ratio
 
-Requires at least 4 days with activity data.
+Formula:
 
-### `readiness_score(efficiency, hr_trend, ratio) -> float | None`
+- split the available activity days into prior and recent halves
+- compute `avg_load(recent_half) / avg_load(prior_half)`
 
-Composite score 0-100, equal weight across available components:
+Load proxy priority:
 
-| Component | Formula |
-|-----------|---------|
-| Sleep efficiency | `(efficiency - 70) / 30 * 50 + 50` — 100% → 100pts, 85% → 75pts, 70% → 50pts, <70% → <50pts |
-| HR trend | `100 - max(0, hr_trend) * 10` — ≤0 bpm/day → 100pts, each +1 bpm/day → −10pts |
-| Load ratio | 0.8–1.2 → 100pts; outside that range → penalty (steeper for overload >1.2) |
+- `active_calories`
+- `exercise_minutes * 5`
+- `steps / 100`
 
-Returns `None` only when all three inputs are `None`.
+Interpretation:
 
-## ReadinessReport (`domain/readiness.py`)
+- `0.8` to `1.2` is the stable zone
+- `> 1.5` suggests unusually high recent load
+- `< 0.8` suggests recent load is below baseline
 
-`DailyReadiness` holds one day's computed metrics plus `data_gaps` and `warnings`.
+Important limitation:
 
-`ReadinessReport` wraps a `DailyReadiness` with an LLM narrative string and
-exposes a `markdown` property that renders a full report including a metrics
-table, warnings list, and the narrative section.
+- this is a simplified seven-day load index, not the clinical ACWR 7:28 model
+
+### Readiness Score
+
+The readiness score averages the available components onto a `0-100` scale.
+
+| Component | Scoring logic |
+|-----------|---------------|
+| Sleep efficiency | Linear transformation with 100% = 100 points and 70% = 50 points |
+| Resting HR trend | Stable or negative trend = 100 points, positive trend reduces score |
+| Load ratio | Stable zone = 100 points, overload is penalized more heavily than underload |
+
+If all components are missing, the score is `None`.
+
+## Readiness Flow
+
+1. Infrastructure fetches the requested seven-day window from VytalLink.
+2. The REST adapter maps raw payloads into `HealthData`.
+3. The application use case computes daily readiness metrics.
+4. The use case assembles warnings and either calls the LLM adapter or generates a fallback narrative.
+5. The final `ReadinessReport` can be rendered as markdown or JSON.
+
+## Contract Notes
+
+- The current REST adapter supports configurable endpoint paths because the repository does not yet embed a single authoritative VytalLink API contract.
+- Payload parsing is defensive and accepts common list and dictionary container shapes.
+- Notebook and CLI consumers should call the application use case instead of duplicating metric logic.

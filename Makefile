@@ -1,22 +1,18 @@
 # =============================================================================
-# This Makefile provides commands to configure, run, and work with
-# the VytalLink Health Kit — Daily Readiness Agent.
+# VytalLink Health Kit — development commands
 #
 # Main features:
-# - Virtual environment management with uv
-# - Linting and formatting tools for code quality
-# - Development and production server
-# - Interactive CLI and single question mode
-# - Batch testing against the API
-# - Docker containerization support
+# - uv-based environment management
+# - Ruff, Bandit, pytest, and coverage validation
+# - CLI execution for the readiness workflow
+# - notebook support for demos and exploration
 #
 # Basic usage:
-#   make install          # Set up development environment
-#   make format           # Automatically format code
-#   make lint             # Check code quality
-#   make test             # Run tests
-#   make run-api          # Start API server
-#   make build-api        # Build API Docker image
+#   make install
+#   make format
+#   make lint
+#   make test
+#   make run-readiness
 # =============================================================================
 
 export PYTHON_VERSION=3.11.9
@@ -160,67 +156,17 @@ test-unit:
 # APPLICATION EXECUTION
 # =============================================================================
 
-# Start LangGraph development server
-run-dev:
-	@echo "🚀 Starting development server..."
+# Run the readiness CLI in markdown mode using fallback recommendations
+run-readiness:
+	@echo "🚀 Running readiness report in markdown mode..."
 	@if [ ! -d .venv ]; then make install; fi
-	@. $(VENV_DIR)/bin/activate && langgraph dev
+	@. $(VENV_DIR)/bin/activate && uv run vytallink-health-kit readiness --no-llm
 
-# Start FastAPI server
-run-api:
-	@echo "🚀 Starting API server..."
+# Run the readiness CLI in JSON mode using fallback recommendations
+run-readiness-json:
+	@echo "🚀 Running readiness report in JSON mode..."
 	@if [ ! -d .venv ]; then make install; fi
-	@. $(VENV_DIR)/bin/activate && PYTHONPATH=${PWD} uvicorn api:app --reload --host 0.0.0.0 --port 8008 --log-level debug
-
-# Run CLI with a predefined question
-run-question:
-	@echo "🚀 Running a single question"
-	@if [ ! -d .venv ]; then make install; fi
-	@. $(VENV_DIR)/bin/activate && PYTHONPATH=${PWD}/src python main.py --question "I have frequent headaches, can you help me prepare my medical consultation?"
-
-# Start interactive CLI mode
-run-interactive:
-	@echo "🚀 Starting interactive CLI mode"
-	@if [ ! -d .venv ]; then make install; fi
-	@. $(VENV_DIR)/bin/activate && PYTHONPATH=${PWD}/src python main.py --interactive
-
-# =============================================================================
-# DOCKER BUILD AND DEPLOYMENT
-# =============================================================================
-
-# Docker configuration variables
-IMG_NAME ?= vytallink-health-kit
-IMAGE_TAG ?= latest
-CONTAINER_NAME ?= medical-agent-server
-API_PORT ?= 8008
-
-# Enable Docker BuildKit
-export DOCKER_BUILDKIT=1
-
-# Build API Docker image
-build-api:
-	@echo "🔨 Building FastAPI Docker image (using Dockerfile.api)..."
-	@docker build --platform=linux/amd64 -t ${IMG_NAME}:${IMAGE_TAG} -f Dockerfile.api .
-	@echo "✅ FastAPI Docker image built successfully!"
-
-# Run Docker container
-run-api-docker:
-	@echo "🚀 Running Docker container..."
-	@docker run --platform=linux/amd64 -e ENV=production -d -p ${API_PORT}:${API_PORT} --env-file .env ${IMG_NAME}:${IMAGE_TAG}
-	@echo "✅ Docker container running at http://localhost:${API_PORT}!"
-
-# Build without cache
-build-fresh:
-	@echo "🔨 Building Docker image without cache..."
-	@docker build --no-cache --platform=linux/amd64 -t ${IMG_NAME}:${IMAGE_TAG} -f Dockerfile.api .
-	@echo "✅ Docker image built successfully!"
-
-# Stop Docker container
-stop-docker:
-	@echo "🛑 Stopping Docker container..."
-	@docker stop ${CONTAINER_NAME} 2>/dev/null || true
-	@docker rm ${CONTAINER_NAME} 2>/dev/null || true
-	@echo "✅ Container stopped!"
+	@. $(VENV_DIR)/bin/activate && uv run vytallink-health-kit readiness --output json --no-llm
 
 # =============================================================================
 # USEFUL COMMANDS
@@ -230,6 +176,7 @@ stop-docker:
 ci:
 	@echo "🚀 Running full CI pipeline..."
 	@make format
+	@make fix
 	@make lint
 	@make test
 	@echo "✅ CI pipeline completed successfully!"
