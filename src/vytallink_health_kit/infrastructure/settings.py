@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,10 @@ class VytalLinkSettings(BaseSettings):
     metrics_group_by: str | None = "DAY"  # VYTALLINK_METRICS_GROUP_BY
     metrics_statistic: str | None = None  # VYTALLINK_METRICS_STATISTIC
     timeout_seconds: float = 15.0  # VYTALLINK_TIMEOUT_SECONDS
+    metrics_timeout_seconds: float = 45.0  # VYTALLINK_METRICS_TIMEOUT_SECONDS
+    metrics_request_interval_seconds: float = (
+        1.0  # VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS
+    )
 
 
 class LLMSettings(BaseSettings):
@@ -54,6 +59,40 @@ class LLMSettings(BaseSettings):
     llm_provider: str = "anthropic"  # LLM_PROVIDER env var
     anthropic_api_key: str | None = None  # ANTHROPIC_API_KEY env var
     openai_api_key: str | None = None  # OPENAI_API_KEY env var
+
+
+class ObservabilitySettings(BaseSettings):
+    """Observability and tracing settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    otel_exporter_otlp_endpoint: str = Field(
+        default="http://localhost:4317", alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
+    otel_service_name: str = Field(
+        default="vytallink-health-kit", alias="OTEL_SERVICE_NAME"
+    )
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    langsmith_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LANGSMITH_API_KEY", "LANGCHAIN_API_KEY"),
+    )
+    langsmith_project: str = Field(
+        default="vytallink-health-kit",
+        validation_alias=AliasChoices("LANGSMITH_PROJECT", "LANGCHAIN_PROJECT"),
+    )
+    langsmith_tracing: str = Field(
+        default="true",
+        validation_alias=AliasChoices("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2"),
+    )
+    langsmith_workspace_id: str | None = Field(
+        default=None,
+        alias="LANGSMITH_WORKSPACE_ID",
+    )
 
 
 class ConfigurationError(Exception):
@@ -119,3 +158,8 @@ def load_llm_settings() -> LLMSettings:
         )
 
     return settings
+
+
+def load_observability_settings() -> ObservabilitySettings:
+    """Load observability settings from environment variables."""
+    return ObservabilitySettings()

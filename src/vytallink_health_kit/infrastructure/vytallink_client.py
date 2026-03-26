@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
+from time import perf_counter, sleep
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import httpx
+import structlog
+from opentelemetry.trace import Status, StatusCode
 from tenacity import (
+    before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -18,9 +23,18 @@ from vytallink_health_kit.domain.entities import (
     HRRecord,
     SleepRecord,
 )
+from vytallink_health_kit.infrastructure.observability import (
+    get_tracer,
+    get_vytallink_metrics,
+)
 
 if TYPE_CHECKING:
     from vytallink_health_kit.infrastructure.settings import VytalLinkSettings
+
+logger = structlog.get_logger(__name__)
+retry_logger = logging.getLogger(__name__)
+tracer = get_tracer(__name__)
+metrics = get_vytallink_metrics()
 
 DATE_KEYS = (
     "date",
@@ -130,6 +144,7 @@ class VytalLinkRESTClient:
             start_date=start_date,
             end_date=end_date,
         )
+        self._pause_between_metric_requests("heart_rate")
         hr_payload = self._get_metric_json(
             value_type=self._normalize_metric_value_type(
                 self._settings.heart_rate_value_type
@@ -137,6 +152,7 @@ class VytalLinkRESTClient:
             start_date=start_date,
             end_date=end_date,
         )
+        self._pause_between_metric_requests("activity")
         activity_payload = self._get_metric_json(
             value_type=self._normalize_metric_value_type(
                 self._settings.activity_value_type
@@ -162,8 +178,10 @@ class VytalLinkRESTClient:
             )
 
         try:
-            response = self._http_client.post(
-                self._settings.direct_login_path,
+            response = self._request(
+                method="POST",
+                path=self._settings.direct_login_path,
+                metric_name="direct_login",
                 data={
                     "word": self._settings.word,
                     "code": self._settings.code,
@@ -199,6 +217,7 @@ class VytalLinkRESTClient:
         retry=retry_if_exception_type((httpx.RequestError, httpx.TimeoutException)),
         stop=stop_after_attempt(4),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(retry_logger, logging.WARNING),
         reraise=True,
     )
     def _get_metric_json(
@@ -216,15 +235,19 @@ class VytalLinkRESTClient:
             params["statistic"] = self._settings.metrics_statistic.upper()
 
         try:
-            response = self._http_client.get(
-                self._settings.metrics_path,
+            response = self._request(
+                method="GET",
+                path=self._settings.metrics_path,
+                metric_name=value_type.lower(),
                 params=params,
                 headers=self._build_session_headers(),
+                timeout=self._settings.metrics_timeout_seconds,
             )
         except httpx.HTTPError as exc:
             raise VytalLinkClientError(
                 "Failed to reach VytalLink metrics endpoint "
-                f"'{self._settings.metrics_path}' for value_type '{value_type}': {exc}"
+                f"'{self._settings.metrics_path}' for value_type '{value_type}': {exc}. "
+                "If the server is saturated, retry in a moment or increase VYTALLINK_METRICS_TIMEOUT_SECONDS."
             ) from exc
 
         if response.status_code in (401, 403):
@@ -256,14 +279,18 @@ class VytalLinkRESTClient:
         retry=retry_if_exception_type((httpx.RequestError, httpx.TimeoutException)),
         stop=stop_after_attempt(4),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(retry_logger, logging.WARNING),
         reraise=True,
     )
     def _get_json(self, path: str, start_date: date, end_date: date) -> Any:
         try:
-            response = self._http_client.get(
-                path,
+            response = self._request(
+                method="GET",
+                path=path,
+                metric_name=path.strip("/").replace("/", "_") or "root",
                 params=self._build_query_params(start_date, end_date),
                 headers=self._build_headers(),
+                timeout=self._settings.timeout_seconds,
             )
         except httpx.HTTPError as exc:
             raise VytalLinkClientError(
@@ -312,6 +339,125 @@ class VytalLinkRESTClient:
             "Accept": "application/json",
             "openai-conversation-id": self._conversation_id,
         }
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        metric_name: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        start_time = perf_counter()
+        logger.info(
+            "vytallink_request_started",
+            method=method,
+            path=path,
+            metric_name=metric_name,
+        )
+
+        with tracer.start_as_current_span(f"vytallink.{metric_name}") as span:
+            span.set_attribute("http.request.method", method)
+            span.set_attribute("url.path", path)
+            span.set_attribute("vytallink.metric_name", metric_name)
+
+            try:
+                response = self._http_client.request(method, path, **kwargs)
+            except Exception as exc:
+                elapsed_ms = round((perf_counter() - start_time) * 1000, 2)
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                metrics.duration_ms.record(
+                    elapsed_ms,
+                    {
+                        "method": method,
+                        "path": path,
+                        "metric_name": metric_name,
+                        "status": "error",
+                    },
+                )
+                metrics.requests_total.add(
+                    1,
+                    {
+                        "method": method,
+                        "path": path,
+                        "metric_name": metric_name,
+                        "status": "error",
+                    },
+                )
+                metrics.errors_total.add(
+                    1,
+                    {"method": method, "path": path, "metric_name": metric_name},
+                )
+                logger.exception(
+                    "vytallink_request_failed",
+                    method=method,
+                    path=path,
+                    metric_name=metric_name,
+                    duration_ms=elapsed_ms,
+                    error=str(exc),
+                )
+                raise
+
+            elapsed_ms = round((perf_counter() - start_time) * 1000, 2)
+            span.set_attribute("http.response.status_code", response.status_code)
+            if response.is_error:
+                span.set_status(
+                    Status(StatusCode.ERROR, f"HTTP {response.status_code}")
+                )
+            else:
+                span.set_status(Status(StatusCode.OK))
+
+            status = "error" if response.is_error else "success"
+            metrics.duration_ms.record(
+                elapsed_ms,
+                {
+                    "method": method,
+                    "path": path,
+                    "metric_name": metric_name,
+                    "status": status,
+                },
+            )
+            metrics.requests_total.add(
+                1,
+                {
+                    "method": method,
+                    "path": path,
+                    "metric_name": metric_name,
+                    "status": status,
+                },
+            )
+            if response.is_error:
+                metrics.errors_total.add(
+                    1,
+                    {
+                        "method": method,
+                        "path": path,
+                        "metric_name": metric_name,
+                    },
+                )
+
+            logger.info(
+                "vytallink_request_completed",
+                method=method,
+                path=path,
+                metric_name=metric_name,
+                duration_ms=elapsed_ms,
+                status_code=response.status_code,
+                status=status,
+            )
+            return response
+
+    def _pause_between_metric_requests(self, next_metric_name: str) -> None:
+        interval = self._settings.metrics_request_interval_seconds
+        if interval <= 0:
+            return
+
+        logger.info(
+            "vytallink_request_spacing",
+            next_metric_name=next_metric_name,
+            sleep_seconds=interval,
+        )
+        sleep(interval)
 
     def _build_sleep_map(
         self, window: list[date], payload: Any

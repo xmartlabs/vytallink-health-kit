@@ -15,6 +15,7 @@ from vytallink_health_kit.application.use_cases import (
     ChatWithHealthDataUseCase,
 )
 from vytallink_health_kit.infrastructure.llm import LLMNarrativeGenerator
+from vytallink_health_kit.infrastructure.observability import initialize_observability
 from vytallink_health_kit.infrastructure.settings import (
     ConfigurationError,
     load_llm_settings,
@@ -33,6 +34,7 @@ console = Console()
 @app.callback()
 def callback() -> None:
     """Run VytalLink Health Kit commands."""
+    initialize_observability()
 
 
 @app.command()

@@ -63,6 +63,7 @@ Important operational constraint:
 
 - the phone must remain available while requests are being served
 - if the app is closed or the session expires, the backend cannot fetch data from the device
+- some VytalLink environments can also saturate when many requests hit the relay in a short period, especially from notebooks or repeated chat/demo loops
 
 ## Integration Modes Supported By This Repo
 
@@ -136,6 +137,7 @@ Use the existing application use case and one of the built-in entry points:
 - package import for product integration
 
 This is the default path and the most stable one.
+It is also the safest path for unstable environments because the toolkit can reuse one fetched health snapshot instead of repeatedly hitting the backend.
 
 ### Custom analytics on top of VytalLink data
 
@@ -144,6 +146,7 @@ If you want more than readiness scoring:
 1. reuse the existing VytalLink client instead of calling the backend directly from notebooks
 2. add a new application use case for the derived analysis
 3. keep domain formulas in `domain/` and transport logic in `infrastructure/`
+4. if the same data window is reused across several steps, cache it or pass a static provider instead of re-fetching it each time
 
 This prevents notebooks or UI code from becoming the place where business rules live.
 
@@ -220,7 +223,17 @@ Before building new features, keep these realities in mind:
 - the mobile app session is the live data source, so phone availability matters
 - raw historical queries can become large quickly; grouped metrics are preferable for analytics and notebook use
 - backend contracts may differ across environments, so configuration and adapter flexibility matter
+- repeated fetches can overwhelm some VytalLink relay environments, so spacing, caching, and bounded demo windows matter
 - the readiness model in this repo is intentionally scoped and does not cover every health signal exposed by VytalLink
+
+## Demo And Notebook Safety
+
+When using notebooks or interactive demos against a live VytalLink environment:
+
+- fetch the window once and reuse it for charts, readiness, narrative, and chat whenever possible
+- avoid tight loops that trigger a fresh backend request on every user interaction
+- prefer `VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS` over aggressive repeated retries
+- if the backend starts timing out, wait and retry instead of hammering it with multiple reruns
 
 ## When To Use A Doc Versus A Skill
 

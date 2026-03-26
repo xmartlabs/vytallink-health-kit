@@ -169,6 +169,22 @@ run-readiness-json:
 	@. $(VENV_DIR)/bin/activate && uv run vytallink-health-kit readiness --output json --no-llm
 
 # =============================================================================
+# OBSERVABILITY STACK
+# =============================================================================
+
+obs-up: ## Start the observability stack
+	@docker compose -f docker-compose.observability.yml up -d
+
+obs-down: ## Stop the observability stack
+	@docker compose -f docker-compose.observability.yml down
+
+obs-logs: ## Stream observability stack logs
+	@docker compose -f docker-compose.observability.yml logs -f
+
+obs-status: ## Show observability stack status
+	@docker compose -f docker-compose.observability.yml ps
+
+# =============================================================================
 # USEFUL COMMANDS
 # =============================================================================
 

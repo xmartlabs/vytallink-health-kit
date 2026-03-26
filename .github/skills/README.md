@@ -35,3 +35,8 @@ All skills must comply with:
 For complex tasks, also comply with:
 
 - `.github/orchestration.md`
+
+Repository-specific caution:
+
+- For VytalLink-facing features, demos, or notebooks, assume the upstream server may saturate under repeated or bursty requests.
+- Prefer cached snapshots, bounded windows, request spacing, and explicit timeout/backoff settings over repeated refetch loops.
