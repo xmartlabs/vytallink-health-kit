@@ -212,3 +212,80 @@ def test_vytallink_client_surfaces_direct_login_failures() -> None:
 
     with pytest.raises(VytalLinkAuthenticationError, match="direct login rejected"):
         client.fetch_window(end_date=date(2026, 3, 23), days=2)
+
+
+def test_metrics_requests_use_metrics_timeout_setting() -> None:
+    seen_timeouts: list[float | httpx.Timeout | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/sleep":
+            return httpx.Response(404, json={"detail": "Not Found"})
+
+        if request.method == "POST" and request.url.path == "/api/direct-login":
+            return httpx.Response(200, json={"success": True})
+
+        if request.method == "GET" and request.url.path == "/api/get_health_metrics":
+            return httpx.Response(200, json={"healthData": []})
+
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    class RecordingClient(httpx.Client):
+        def request(self, method, url, **kwargs):  # type: ignore[override]
+            seen_timeouts.append(kwargs.get("timeout"))
+            return super().request(method, url, **kwargs)
+
+    transport = httpx.MockTransport(handler)
+    settings = VytalLinkSettings(
+        base_url="https://example.test",
+        word="demo",
+        code="demo",
+        metrics_timeout_seconds=60.0,
+    )
+    client = VytalLinkRESTClient(
+        settings=settings,
+        http_client=RecordingClient(
+            base_url="https://example.test",
+            transport=transport,
+        ),
+    )
+
+    client.fetch_window(end_date=date(2026, 3, 23), days=2)
+
+    assert 60.0 in seen_timeouts
+
+
+def test_metrics_requests_can_be_spaced(monkeypatch) -> None:
+    sleep_calls: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/sleep":
+            return httpx.Response(404, json={"detail": "Not Found"})
+
+        if request.method == "POST" and request.url.path == "/api/direct-login":
+            return httpx.Response(200, json={"success": True})
+
+        if request.method == "GET" and request.url.path == "/api/get_health_metrics":
+            return httpx.Response(200, json={"healthData": []})
+
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    monkeypatch.setattr(
+        "vytallink_health_kit.infrastructure.vytallink_client.sleep",
+        lambda seconds: sleep_calls.append(seconds),
+    )
+
+    transport = httpx.MockTransport(handler)
+    settings = VytalLinkSettings(
+        base_url="https://example.test",
+        word="demo",
+        code="demo",
+        metrics_request_interval_seconds=1.5,
+    )
+    client = VytalLinkRESTClient(
+        settings=settings,
+        http_client=httpx.Client(base_url="https://example.test", transport=transport),
+    )
+
+    client.fetch_window(end_date=date(2026, 3, 23), days=2)
+
+    assert sleep_calls == [1.5, 1.5]

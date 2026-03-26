@@ -8,6 +8,13 @@ The first release targets three consumption modes:
 - command-line interface
 - demo notebook
 
+It also includes a local observability stack for demo sessions:
+
+- Grafana dashboards for app metrics and logs
+- Jaeger for traces
+- Loki + Promtail for log aggregation
+- LangSmith support for LLM tracing
+
 ## What It Does
 
 - Loads a seven-day health window from the VytalLink REST API
@@ -81,6 +88,16 @@ export VYTALLINK_ACTIVITY_VALUE_TYPE="STEPS"
 
 By default the toolkit uses `VYTALLINK_API_MODE=auto`: it tries the legacy `/sleep`-style endpoints first and falls back to the newer metrics API with direct login when those paths are missing.
 
+If the metrics backend is slow or saturated, tune these values in `.env`:
+
+```bash
+export VYTALLINK_TIMEOUT_SECONDS="20"
+export VYTALLINK_METRICS_TIMEOUT_SECONDS="60"
+export VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS="1.5"
+```
+
+`VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS` adds a short pause between the sleep, heart-rate, and activity metric requests to avoid hammering the backend during demos.
+
 Optional LLM configuration:
 
 ```bash
@@ -113,6 +130,39 @@ uv run vytallink-health-kit readiness \
 	--code "your-code"
 ```
 
+## Observability Workflow
+
+Use observability when you want to demo or debug the full pipeline and watch the app behavior live while the CLI or notebook is running.
+
+Recommended order:
+
+1. Configure `.env` with VytalLink, LLM, and observability values.
+2. Start the local stack with `make obs-up`.
+3. Open Grafana at `http://localhost:3000` and keep the `VytalLink App` dashboard open.
+4. Run the notebook demo at `notebooks/health_chat_demo.ipynb` or a CLI flow.
+5. Inspect metrics, traces, and logs while the requests are happening.
+
+Typical dashboard signals:
+
+- LLM latency and error rate after the narrative or chat steps
+- VytalLink API request activity during data fetches
+- JSON log stream in Loki-backed panels
+- Trace spans in Jaeger for the same run
+
+If the OTEL collector is not running, the app now skips OTEL export cleanly instead of filling the console with exporter failures. To enable the full stack, keep `OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"` and start it with `make obs-up`.
+
+For LangSmith, use the official environment variables:
+
+```bash
+export LANGSMITH_API_KEY="lsv2_pt_..."
+export LANGSMITH_PROJECT="vytallink-health-kit"
+export LANGSMITH_TRACING="true"
+```
+
+If your LangSmith account has multiple workspaces, also set `LANGSMITH_WORKSPACE_ID`.
+
+See [docs/observability.md](/docs/observability.md) for the full setup and verification guide.
+
 ## Development Commands
 
 | Command | Description |
@@ -126,6 +176,10 @@ uv run vytallink-health-kit readiness \
 | `make ci` | Run the local validation pipeline |
 | `make run-readiness` | Run the CLI in markdown mode without LLM |
 | `make run-readiness-json` | Run the CLI in JSON mode without LLM |
+| `make obs-up` | Start the local observability stack |
+| `make obs-down` | Stop the local observability stack |
+| `make obs-logs` | Stream observability stack logs |
+| `make obs-status` | Show observability stack status |
 
 ## Notes on Metrics
 
@@ -153,4 +207,5 @@ This repository keeps the template governance model because it is used for AI-as
 
 - [docs/configuration.md](/docs/configuration.md): environment variables and credential guidance
 - [docs/domain.md](/docs/domain.md): architecture and metric definitions
+- [docs/observability.md](/docs/observability.md): local dashboards, traces, logs, and LangSmith setup
 - [docs/vytallink-integration-guide.md](/docs/vytallink-integration-guide.md): how to build with the VytalLink app and this repository together
