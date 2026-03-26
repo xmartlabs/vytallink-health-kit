@@ -26,3 +26,4 @@ Create or update implementation documentation in `docs/` whenever new code is im
 3. Include test evidence and validation commands.
 4. Create `docs/` if missing.
 5. Use `docs/implementation-template.md` as the default structure.
+6. When documenting VytalLink-facing changes, include any request-volume, timeout, retry, caching, or backend-saturation considerations that operators should know.

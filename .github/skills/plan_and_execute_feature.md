@@ -26,6 +26,7 @@ Deliver a feature through explicit orchestration phases with architecture-safe e
 
 - Clarify scope, assumptions, and acceptance criteria.
 - Build a step-by-step implementation plan.
+- If the feature touches VytalLink data access, notebooks, chat loops, or observability demos, explicitly assess backend saturation risk and how the design limits repeated requests.
 
 ### Phase 2 - Architecture Validation
 
@@ -55,3 +56,4 @@ Deliver a feature through explicit orchestration phases with architecture-safe e
 2. No direct implementation without completing Phase 1 and Phase 2.
 3. Include tests and `docs/` updates when behavior changes.
 4. Report open risks and deferred items explicitly.
+5. For VytalLink-facing work, prefer plans that reuse fetched data, space outbound requests, and document timeout/backoff controls.

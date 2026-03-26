@@ -88,6 +88,25 @@ Notes:
 - the metrics API expects MCP-style enums such as `SLEEP`, `HEART_RATE`, and `STEPS`
 - when `VYTALLINK_METRICS_GROUP_BY` is set, the toolkit chooses a default statistic automatically: `AVERAGE` for heart rate and `SUM` for sleep and activity totals
 
+### VytalLink server saturation safeguards
+
+Some VytalLink environments become unstable when many requests are made in a short period or when the same health window is fetched repeatedly from notebooks, demos, or chat loops.
+
+Use these settings when the backend is slow or saturates:
+
+```bash
+VYTALLINK_TIMEOUT_SECONDS="20"
+VYTALLINK_METRICS_TIMEOUT_SECONDS="60"
+VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS="1.5"
+```
+
+Operational guidance:
+
+- prefer one fetch and reuse the in-memory snapshot when possible
+- avoid repeatedly re-running notebook cells that refetch the same window
+- keep demo windows small unless a larger range is truly needed
+- add spacing or caching before increasing raw request volume
+
 ### LLM variables
 
 LLM support is optional. If no valid provider configuration exists, the toolkit falls back to deterministic text.
@@ -123,6 +142,8 @@ VYTALLINK_HEART_RATE_VALUE_TYPE="HEART_RATE"
 VYTALLINK_ACTIVITY_VALUE_TYPE="STEPS"
 VYTALLINK_METRICS_GROUP_BY="DAY"
 VYTALLINK_TIMEOUT_SECONDS="15"
+VYTALLINK_METRICS_TIMEOUT_SECONDS="45"
+VYTALLINK_METRICS_REQUEST_INTERVAL_SECONDS="1.0"
 ```
 
 ## Validation
@@ -136,6 +157,7 @@ uv run vytallink-health-kit readiness --no-llm
 If credentials are wrong, the CLI should fail with an authentication error that mentions `VYTALLINK_WORD` and `VYTALLINK_CODE`.
 
 If your server publishes `/api/get_health_metrics`, the toolkit now falls back automatically and reports direct-login failures explicitly when the provided word/code pair is not valid for that deployment.
+If that metrics endpoint is slow or overloaded, increase the timeout and request-interval settings before assuming the credentials or payload contract are wrong.
 
 ## Current Limitation
 

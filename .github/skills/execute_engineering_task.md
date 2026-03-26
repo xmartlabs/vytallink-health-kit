@@ -40,3 +40,4 @@ Execute engineering work through governed orchestration instead of ad-hoc genera
 3. Keep all code artifacts in English.
 4. Update `docs/` when implementation or tests change.
 5. Escalate blockers with explicit assumptions and next actions.
+6. If the task interacts with VytalLink endpoints, treat backend saturation as a default operational risk and avoid introducing repeated fetch loops without caching, spacing, or documented mitigations.
